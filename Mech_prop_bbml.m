@@ -1,21 +1,22 @@
 function [ ]  = Mech_prop_bbml();
 
 tic
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Code is for both femur and tibia, in 3 or 4 point bending 
-% which is hard coded.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% VERSION NOTES
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% THIS CODE IS FOR MEMBERS OF BBML
+% It imports I and c values from excel sheet genereated by Mech_geom_bbml
+% IT WILL NOT WORK WITH EXCEL SHEETS MADE BY CTGeom_bbml
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 % RKK adapted on 10/4/2019 to fix geometry inputs and allow for both femur 
-% and tibia testing
+% and tibia testing. Logic to avoid overwriting files added 10/10/2019.
 
 % AGB adapted on 7/24/15 to not zero the load and displacement when you choose
 % the start point due to problems with rolling during testing. Instead, the
 % program will use this point, then perform a linear regression to take
 % this back to 0,0
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Written by Joey Wallace, July 2012 to work with test resources system.
-
+%
 % Edited by Max Hammond Sept. 2014 Changed the output from a csv 
 % file to an xls spreadsheet that included a title row. Code written by
 % Alycia Berman was added into the CTgeom section of the code to subtract
@@ -26,34 +27,28 @@ tic
 % using a moving average with a span of 10. Added a menu in case points
 % need to be reselected.
 
+% Written by Joey Wallace, July 2012 to work with test resources system.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PROGRAM DESCRIPTION
 % This is a comprehensive program that reads in geometric and mechanical
 % information to calculate force/displacement and stress/strain from 
 % bending mechanical tests (3 OR 4 POINT).
 
 % This program reads raw mechanical data from the Bose system
 % from a a file named "specimen name.csv". It assumes that mechanical specimen
-% names are written as "ID#_RF" or "ID#_LF". For femora, the assumption is that
-% bending was about the ML axis with the anterior surface in tension. For
-% tibiae, the assumption is that bending was about the AP axis with the
-% medial surface in tension.
-%  
+% names are written as "ID#_RF", "ID#_LF", "ID#_RT, or "ID#_RF". For femora, 
+% the assumption is thatbending was about the ML axis with the anterior 
+% surface in tension. For tibiae, the assumption is that bending was about 
+% the AP axis with the medial surface in tension.
+
 % The program adjusts for system compliance and then uses beam bending
 % theory to convert force-displacement data to theoretical stress-strain
 % values.  Mechanical properties are calculated in both domains and output
-% to a file "specimen name_mechanics.csv".  It also outputs a figure
+% to a file "specimentype_date_mechanics.csv".  It also outputs a figure
 % showing the load-displacement and stress-strain curves with significant
 % points marked.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*
-% Geometry used here is from a CSV output from the CTGeom_bbml code.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -64,10 +59,10 @@ dbstop if error
 
 %*****************\TESTING CONFIGURATION/**********************************
 %                                                                         *
-%       Adjust these values to match the system setup                     *
+%   Adjust these values to match the system setup.                        *
 %                                                                         *
 L = 9.00;           %span between bottom load points (mm)                 *
-a = 3.00;           %distance between outer and inner points (if 4pt; mm) *
+a = 4.00;           %distance between outer and inner points (if 4pt; mm) *
 bendtype = '4';     %enter '4' for 4pt and '3' for 3pt bending            *
 compliance = 0;     %system compliance (microns/N)                        *
 side = 'R';         %input 'R' for right and 'L' for left                 *
@@ -92,7 +87,11 @@ if bone ~= 'F' && bone ~= 'T'
         error('Please F or T for bone as a string in the Testing Configuration')
 end
 
-% Added final check to ensure that user edits testing configuration values
+if bone == 'T' && bendtype == '3'
+        error('Tibias are tested in 4 pt bending. Please change bendtype to 4.')
+end
+
+% RKK added final check to ensure that user edits testing configuration values
 answer = questdlg('Have you modified the testing configuration values?', ...
 	'Sanity Check', ...
 	'Yes','No','Huh?','Huh?');
@@ -103,19 +102,18 @@ switch answer
         disp([answer '. Please edit testing configuration values.'])
         return
     case 'Huh?'
-        disp([answer '. See line 76 in the code. Please edit testing configuration values.'])
+        disp([answer ' See line 60 in the code. Please edit testing configuration values.'])
         return
 end
 
 %create a while loop to quickly run through multiple files without running
 %the program more than once
 zzz=1;
-ppp=1;
+ppp=2;
 
 % Get CT Data
 [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
 CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
-
 
 while zzz==1
     
@@ -126,13 +124,13 @@ number = input('Bone Number: ','s');
 
 %create ID from bone and side inputs
 bonetype = [side bone];
-side_type = [bonetype];
 specimen_name = [number '_' bonetype];
 ID = specimen_name;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %This is where we pull in data from the CT, the row for I and c are critical.
+%THE CODE WILL ONLY WORK CORRECTLY WITH EXCEL SHEETS GENERATED BY Mech_geom_bbml!!!
 
 CT_Data_Row = find(CT_Data(:,1)==str2num(number));
 
@@ -146,7 +144,6 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 %Set up loop to redo point selection if desired
 yyy = 1;
@@ -314,7 +311,6 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 %Plot linear regression on top of selected region
 hold on
 linear_stress = slope*linear_strain;
@@ -323,7 +319,6 @@ plot(linear_strain,linear_stress,'g')
 % Create line with a .2% offset (2000 microstrain)
 y_int = -slope*2000;        %y intercept
 y_offset = slope*strain + y_int;    %y coordinates of offest line
-
 
 %Find indeces where the line crosses the x-axis and the stres-strain curve.
 %Then truncates offset line between those points
@@ -366,7 +361,6 @@ yield_index = j;
 %Get postyield deformation/strain
 postyield_disp = disp_to_fail - disp_to_yield;
 postyield_strain = strain_to_fail - strain_to_yield;
-
 
 %**************************************************************************
 %Find pre and post yield energies and toughnesses
@@ -418,6 +412,7 @@ hold off
 yyy=menu('Would you like to reselect these points?','Yes','No');
 
 end
+
 %**************************** OUTPUT *********************************************
 
 % Saves an image of figure 3 (summary of mechanical properties)
@@ -427,7 +422,11 @@ print ('-dpng', specimen_name)
 % will be an empty cell afer which outputs for a schematic
 % representation of the f/d and stress/strain curves will appear.
 
-headers = {'Specimen','I_ml (mm^4)','c_ant (�m)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (�m)','Postyield Displacement (�m)','Total Displacment (�m)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (�?)','Total Strain (�?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (�m)','Ultimate Displacement (�m)','Total Displacment (�m)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (�?)','Ultimate Strain (�?)','Total Strain (�?)'};
+if bone == 'T'
+    headers = {'Specimen','I_ap (mm^4)','c_med (µm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (µm)','Postyield Displacement (µm)','Total Displacment (µm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (µ?)','Total Strain (µ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (µm)','Ultimate Displacement (µm)','Total Displacment (µm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (µ?)','Ultimate Strain (µ?)','Total Strain (µ?)'};
+elseif bone == 'F'
+    headers = {'Specimen','I_ml (mm^4)','c_ant (µm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (µm)','Postyield Displacement (µm)','Total Displacment (µm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (µ?)','Total Strain (µ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (µm)','Ultimate Displacement (µm)','Total Displacment (µm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (µ?)','Ultimate Strain (µ?)','Total Strain (µ?)'};
+end
 
 resultsxls = [{specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
         num2str(ultimate_load), num2str(disp_to_yield), num2str(postyield_disp), num2str(disp_to_fail), ...
@@ -440,12 +439,34 @@ resultsxls = [{specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
         num2str(yield_stress), num2str(ultimate_stress), num2str(fail_stress), ...
         num2str(strain_to_yield), num2str(strain_to_ult), num2str(strain_to_fail)}]; 
 
-row=num2str(ppp+1);
-rowcount=['A' row];
+d=datestr(date,'_mm_dd_yy');
+xls=[bonetype d '_mechanics.xls'];
 
-xlswrite('femur_mechanics.xls', resultsxls, 'Data', rowcount)
-xlswrite('femur_mechanics.xls', headers, 'Data', 'A1')
-warning off MATLAB:xlswrite:AddSheet 
+% RKK added loop to avoid writing over pre-existing file. This way, if 
+% an error happens during a run, the program can be restarted without 
+% losing data.
+
+if isfile(xls) % Check if file already exists
+    row=num2str(ppp);
+    cell=['B' row];
+    % Find first empty row in existing file
+    while xlsread(xls,'Data',cell) ~=0 
+        ppp=ppp+1;
+        row=num2str(ppp);
+        cell=['B' row];
+    end
+    % Write data
+    row=num2str(ppp);
+    rowcount=['A' row];
+    xlswrite(xls, resultsxls, 'Data', rowcount)
+    warning off MATLAB:xlswrite:AddSheet
+else % If file doesn't exist, create new file
+    row=num2str(ppp);
+    rowcount=['A' row];
+    xlswrite(xls, resultsxls, 'Data', rowcount)
+    xlswrite(xls, headers, 'Data', 'A1')
+    warning off MATLAB:xlswrite:AddSheet 
+end
 
 ppp=ppp+1;
 zzz=menu('Do you have more data to analyze?','Yes','No');
