@@ -100,15 +100,15 @@ end
 
 % Input global greyscale threshold and display a warning for values outside
 % of the specified range
-% threshold = input(' Input threshold value (0-255): ');
-% while threshold>255 || threshold<0
-%     fprintf(2,'\n Please enter a threshold between 0 and 255. \n\n')
-%     threshold = input('Input threshold value (0-255): ');
-% end
+threshold = input(' Input threshold value (0-255): ');
+while threshold>255 || threshold<0
+    fprintf(2,'\n Please enter a threshold between 0 and 255. \n\n')
+    threshold = input('Input threshold value (0-255): ');
+end
 
 % !!! Threshold PREVIOUSLY AN INPUT ^ But changed by RKK to be a constant.
 % Uncomment the code above and comment the code below to return to input.
-threshold = 70;
+% threshold = 70;
 
 % Input whether left or right limbs will be analyzed, correct common
 % mistakes, and display a warning for other values
@@ -643,13 +643,13 @@ catch ME
             blank = cell(1, 360/ang +1);
             prof_out = [num2cell(0:ang:360); prof_out_peri_cell; blank; num2cell(0:ang:360); prof_out_endo_cell];
             prof_mean_out = horzcat(col_prof_cell, prof_out);
-            xlswrite([overall_folder '\CTprof_avg_toerror.xlsx'], prof_mean_out, 'Raw Data', 'A1')
+            xlswrite([overall_folder '\Mech_prof_avg_toerror.xlsx'], prof_mean_out, 'Raw Data', 'A1')
             
             geom_out_cell = horzcat(sample_list', geom_out_cell); % label the rows
             headers = {'Iap (mm^4)', 'Medial Extreme (mm)', '', 'Iml (mm^4)', 'Anterior Extreme (mm)'};
             headers = horzcat(' ', headers);
             geom_mean_out = [headers; geom_out_cell]; % add column titles
-            xlswrite([overall_folder '\CTgeom_avg_toerror.xlsx'], geom_mean_out, 'Raw Data', 'A1')
+            xlswrite([overall_folder '\Mech_geom_avg_toerror.xlsx'], geom_mean_out, 'Raw Data', 'A1')
             
         end
         
@@ -690,7 +690,7 @@ col_prof_cell = [peri_cell; ' '; endo_cell];
 blank = cell(1, 360/ang +1);
 prof_out = [prof_cell(1, :); prof_out_peri_cell; blank; prof_cell(1, :); prof_out_endo_cell];
 prof_mean_out = horzcat(col_prof_cell, prof_out);
-xlswrite([overall_folder '\CTprof_avg.xlsx'], prof_mean_out, 'Raw Data', 'A1')
+xlswrite([overall_folder '\Mech_prof_avg.xlsx'], prof_mean_out, 'Raw Data', 'A1')
 
 % Create cell array for output containing all column and row headers along
 % with the geometric properties and save the data to an xlsx spreadsheet.
@@ -698,7 +698,7 @@ geom_out_cell = horzcat(sample_list', geom_out_cell); % label the rows
 headers = {'Iap (mm^4)', 'Medial Extreme (mm)', '', 'Iml (mm^4)', 'Anterior Extreme (mm)'};
 headers = horzcat(' ', headers);
 geom_mean_out = [headers; geom_out_cell]; % add column titles
-xlswrite([overall_folder '\CTgeom_avg.xlsx'], geom_mean_out, 'Raw Data', 'A1')
+xlswrite([overall_folder '\Mech_geom_avg.xlsx'], geom_mean_out, 'Raw Data', 'A1')
 
 tot_timer = toc(tot);
 tot_msg = ['\n\n Total time for all samples was ' num2str(tot_timer) ' seconds.'];
