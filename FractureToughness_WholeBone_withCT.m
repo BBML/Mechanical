@@ -6,11 +6,14 @@ function FractureToughness_WholeBone_withCT()
 % calculate the structural properties instead of analyzing the cortical
 % bitmap images to determine that information (r_outer, r_inner, I_circle).
 
-%Edited 3/8/18 by Katherine Powell to automatically calculate angles (angle_init and angle_inst) with any given centroid or propragation points. 
+% Edited 3/8/18 by Katherine Powell to automatically calculate angles (angle_init and angle_inst) with any given centroid or propragation points.
+
+% Edited 1/13/20 by Rachel Kohler to fix CT_geom read-in error, add a loop
+% to prevent losing or overwriting data, and some general clean-up.
 
 %% Setup
 
-% Mechanical Test File: 'specimen_number.xls' e.g. 716.xls
+% Mechanical Test File: 'specimen_number.xls' e.g. 716.xls (OR .ods, .csv)
 % SEM File: 'specimen_number_SEM.bmp' e.g. 716_SEM.xls
 % CT File: Naming convention doesn't matter, but the specimen number needs
 % to be in column 'A', the total cross-sectional area needs to be in column
@@ -28,17 +31,16 @@ filename2=input('Please input the filename for the output: ','s');          %nam
 filename2=[filename2 '_MatlabOutput.xls'];
 header={'','Span (mm)', '5 Secant (N)', 'Max Force (N)', 'Failure Force (N)', 'Moment of Inertia (mm^4)','angle, initial','angle, instability', 'R_outer', 'R_inner', 'Thickness', 'K, init','K, max load', 'K, inst'};
 xlswrite(filename2, header, 1,'A1')                                         %make xls file
+[CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
 
 while zzz==1
-    clearvars -except zzz kkk span filename2 Info res filename3 Info2
+    clearvars -except zzz kkk span CT_filename CT_pathname filename2 Info res filename3 Info2
     close all
     
-    filename=uigetfile('*.csv; *.ods','Select Mechanical Test File')        %retrieve mechanical test file
-    [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
-
+    filename=uigetfile('*.csv; *.ods','Select Mechanical Test File');        %retrieve mechanical test file
+    
     [~,specimen,~]=fileparts(filename);
    
-
     [P_5secant, P_max, P_final]=Toughness_MechTest(filename);
 
     [I_circle, r_outer, r_inner]=Toughness_Geom(CT_filename, CT_pathname, specimen);
@@ -53,16 +55,30 @@ while zzz==1
 
     Info(kkk,:)=[{filename}, span, P_5secant, P_max, P_final, I_circle, angle_init, angle_inst, r_outer, r_inner, thickness, K_init, K_maxP, K_inst];
 
+% RKK added loop to avoid writing over pre-existing file. This way, if 
+% an error happens during a run, the program can be restarted without 
+% losing previous work or data.
+    zzz=zzz+1;
+    row=num2str(zzz);
+    cell=['B' row];
+    
+    % Find first empty row in existing file
+    while xlsread(filename2,'Sheet1',cell) ~=0
+        zzz=zzz+1;
+        row=num2str(zzz);
+        cell=['B' row];
+    end
+    
+    % Write data
+    row=num2str(zzz);
+    rowcount=['A' row];
+    xlswrite(filename2, Info, 1, rowcount)
+    
     kkk=kkk+1;     
     
     zzz=menu('Do you have more data to analyze?','Yes','No');
-    
 end
-
-
-xlswrite(filename2, Info, 1,'A2')
-
-
+close all
 end
 
 function [K_init, K_maxP, K_inst]=Toughness_CalculatingK(s,angle_init,angle_inst, r_outer, r_inner, I, P_5secant, P_max, P_final)
@@ -100,8 +116,8 @@ end
 
 function [P_5secant, P_max, P_final]=Toughness_MechTest(filename)
 
-disp=-xlsread(filename, 'D:D');%N
-load=-xlsread(filename, 'E:E');%mm
+disp=-xlsread(filename,'B:B');%N
+load=-xlsread(filename,'C:C');%mm
 
 disp(find(isnan(load))) = [];
 load(find(isnan(load))) = [];
@@ -218,7 +234,7 @@ end
 function [I_circle, r_outer, r_inner]=Toughness_Geom(CT_filename, CT_pathname, specimen)
 
 % Get CT Data
-CT_Data = xlsread([CT_pathname CT_filename]);
+CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
 
 CT_Data_Row = find(CT_Data(:,1)==str2num(specimen));
 tCSA = CT_Data(CT_Data_Row,2); %mm^2
