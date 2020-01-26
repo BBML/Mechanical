@@ -122,9 +122,9 @@ bonetype = [side bone];
 xls=[study bonetype '_mechanics.xls'];
 
 if bone == 'T'
-    headers = {'Specimen','I_ap (mm^4)','c_med (µm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (µm)','Postyield Displacement (µm)','Total Displacment (µm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (µ?)','Total Strain (µ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (µm)','Ultimate Displacement (µm)','Total Displacment (µm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (µ?)','Ultimate Strain (µ?)','Total Strain (µ?)'};
+    headers = {'Specimen','I_ap (mm^4)','c_med (Âµm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (Âµm)','Postyield Displacement (Âµm)','Total Displacment (Âµm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (Âµ?)','Total Strain (Âµ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (Âµm)','Ultimate Displacement (Âµm)','Total Displacment (Âµm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (Âµ?)','Ultimate Strain (Âµ?)','Total Strain (Âµ?)'};
 elseif bone == 'F'
-    headers = {'Specimen','I_ml (mm^4)','c_ant (µm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (µm)','Postyield Displacement (µm)','Total Displacment (µm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (µ?)','Total Strain (µ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (µm)','Ultimate Displacement (µm)','Total Displacment (µm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (µ?)','Ultimate Strain (µ?)','Total Strain (µ?)'};
+    headers = {'Specimen','I_ml (mm^4)','c_ant (Âµm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (Âµm)','Postyield Displacement (Âµm)','Total Displacment (Âµm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (Âµ?)','Total Strain (Âµ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (Âµm)','Ultimate Displacement (Âµm)','Total Displacment (Âµm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (Âµ?)','Ultimate Strain (Âµ?)','Total Strain (Âµ?)'};
 end
 
 xlswrite(xls, headers, 'Data', 'A1')
@@ -145,6 +145,8 @@ number = num2str(specimen_list(kkk));
 specimen_name = [number '_' bonetype];
 ID = specimen_name;
 
+clear load_extension disp_extension
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %This is where we pull in data from the CT, the row for I and c are critical.
@@ -160,9 +162,7 @@ elseif bone == 'F'
     c =   CT_Data(CT_Data_Row,6)*1000; %c_ant
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Read in raw mechanical testing data from Bose system
 imported_data = csvread([ID '.csv'],5,0);
 load = imported_data (:,3);         %in N
@@ -171,24 +171,11 @@ position = imported_data (:,2);     %in mm
 position = position * 10^3 * (-1);         %in microns
 displacement = position - load*compliance;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%Convert the corrected load/displacement data to stress/strain
-if bendtype == '3'
-    stress = (load*L*c) / (4*I) * 10^-3;             %MPa
-    strain = (12*c*displacement) / (L^2);             %microstrain
-end
-
-if bendtype == '4'
-   stress = (load*a*c) / (2*I) * 10^-3;             %MPa
-   strain = (6*c*displacement) / (a*(3*L - 4*a));   %microstrain
-end
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Moving average smoothing with span of 10 if selected initially
-if smoothing == 1
-    load = smooth(load,10,'moving');
-end
+% if smoothing == 1
+%     load = smooth(load,10,'moving');
+% end
 
 %Plot initial data for comparison
 figure ()
@@ -197,61 +184,62 @@ xlabel ('Displacement (microns)')
 ylabel ('Force (N)')
 hold on
 
-
 % Find elastic modulus ---------------------------------------------------
-ultimate_stress = max(stress);
+ultimate_load = max(load);
 i=5;
 j=10;
-y=stress(1:i);
-x=strain(1:i);
+y=load(1:i);
+x=position(1:i);
 
-while y<ultimate_stress 
+while y<ultimate_load 
     fit=polyfit(x,y,1);
     slope1(i)=fit(1);
     % Go to next set of points
-    y=stress(i:j);
-    x=strain(i:j);
+    y=load(i:j);
+    x=position(i:j);
     i=i+5;
     j=j+5;
 end
 
-% Select the top 25 slope values and average them. 
+% Select the top 30 slope values and intercept values and average them. 
 slope2=slope1;
 
-for i=1:25
+for i=1:30
     [k,j]=max(slope2);
     slope2(j)=0;
     m(i)=k;
 end
 
 slope=mean(m);
-modulus=slope*10^3; % GPa
 
 % Find start point -------------------------------------------------------
 mt=slope1(1);
 count1=1;
 
-while mt<m(25)
+while mt<m(30)
     count1=count1+1;
     mt=slope1(count1);
 end
 
 % Truncate data
-stress=stress(count1:end);
-strain=strain(count1:end);
 load=load(count1:end);
 position=position(count1:end);
 
-% Find failure point -----------------------------------------------------
-[ultimate_load,i] = max(load);
+% Extrapolate out missing info
+load_extension(1)=0;
+disp_extension(1)=0;
+i=1;
 
-if i<5
-    fprintf('Could not process %s.\n',number);
-    continue
-else
-    
+while load_extension(i)<load(1)
+    i=i+1;
+    disp_extension(i)=i-1;
+    load_extension(i)=disp_extension(i)*slope;
 end
-% Find where curve drops or goes backwards
+position=position+disp_extension(end)-position(1);
+position=[disp_extension'; position];
+load=[load_extension';load];
+
+% Find failure point -----------------------------------------------------
 slopes=diff(position)./diff(load);
 
 for j=i:length(load)
@@ -259,7 +247,7 @@ for j=i:length(load)
     if slopes(j)<-100000 && slopes(j+5)<-10000
         count2=j;
         if max(load(j:end))>=load(j)
-%             fprintf('Slope Fail %s.\n',number);
+            fprintf('Slope Fail %s.\n',number);
         break
         end
     end
@@ -271,46 +259,19 @@ for j=i:length(load)
     end
 end
 
-% Truncate the data at the start point
+% Truncate Data
 load=load(1:count2);
 position=position(1:count2);
-stress=stress(1:count2);
-strain=strain(1:count2);
+displacement = position - load*compliance;
 
-% Plot truncated data set to compare with original data set
+%  Plot truncated data set to compare with original data set
 plot(position, load,'k')
 hold off
 label=[specimen_name '_COMP'];
 print ('-dpng', label)
 
-% Zero position
-position=position-position(1);
-strain=strain-strain(1);
-displacement = position - load*compliance;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-if bendtype == '3'
-    stiffness = modulus*48*I / (L^3) * 10^3;   % N/mm
-end
-
-if bendtype == '4'
-   stiffness = modulus*12*I / (a^2 * (3*L -4*a)) * 10^3;   % N/mm
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% p=fit;
-% 
-% x_shift=-p(2)/p(1);
-% displacement=displacement-x_shift;
-% 
-% disp_extension=0:0.01:displacement(1);
-% load_extension=disp_extension.*p(1);
-% 
-% displacement=[disp_extension'; displacement];
-% load=[load_extension';load];
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%Convert the corrected load/displacement data to stress/strain
 if bendtype == '3'
     stress = (load*L*c) / (4*I) * 10^-3;             %MPa
     strain = (12*c*displacement) / (L^2);            %microstrain
@@ -321,10 +282,23 @@ if bendtype == '4'
    strain = (6*c*displacement) / (a*(3*L - 4*a));   %microstrain
 end
 
+ mod=mean(diff(stress(1:count1))./diff(strain(1:count1)));
+ modulus=mod*10^3;
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+if bendtype == '3'
+    stiffness = modulus*48*I / (L^3) * 10^3;   % N/mm
+end
+
+if bendtype == '4'
+   stiffness = modulus*12*I / (a^2 * (3*L -4*a)) * 10^3;   % N/mm
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Create line with a .2% offset (2000 microstrain)
-y_int = -slope*2000;        %y intercept
-y_offset = slope*strain + y_int;    %y coordinates of offest line
+y_int = -mod*2000;        %y intercept
+y_offset = mod*strain + y_int;    %y coordinates of offest line
 
 %Find indeces where the line crosses the x-axis and the stres-strain curve.
 %Then truncates offset line between those points
@@ -350,7 +324,7 @@ strain_to_fail = strain(i);
 %ULTIMATE LOAD POINT DATA
 [ultimate_load,i] = max(load);
 disp_to_ult = displacement(i);
-ultimate_stress = stress(i);
+ultimate_load = stress(i);
 strain_to_ult = strain(i);
 ultimate_index = i;
 
@@ -400,7 +374,7 @@ ylabel('Stress (MPa)')
 hold on
 %plot(linear_strain,linear_stress,'r')
 plot(x_offset,y_offset, 'k')
-plot(strain_to_yield, yield_stress, 'k+', strain_to_ult, ultimate_stress, 'k+', ...
+plot(strain_to_yield, yield_stress, 'k+', strain_to_ult, ultimate_load, 'k+', ...
      strain_to_fail, fail_stress, 'k+')
 hold off
 
@@ -427,12 +401,12 @@ print ('-dpng', specimen_name)
 resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
         num2str(ultimate_load), num2str(disp_to_yield), num2str(postyield_disp), num2str(disp_to_fail), ...
         num2str(stiffness), num2str(preyield_work), num2str(postyield_work), ...
-        num2str(total_work), num2str(yield_stress), num2str(ultimate_stress), ...
+        num2str(total_work), num2str(yield_stress), num2str(ultimate_load), ...
         num2str(strain_to_yield), num2str(strain_to_fail), num2str(modulus),  ...
         num2str(preyield_toughness), num2str(total_toughness), '', specimen_name, ...
         num2str(yield_load), num2str(ultimate_load), num2str(fail_load), ...
         num2str(disp_to_yield), num2str(disp_to_ult), num2str(disp_to_fail), ...
-        num2str(yield_stress), num2str(ultimate_stress), num2str(fail_stress), ...
+        num2str(yield_stress), num2str(ultimate_load), num2str(fail_stress), ...
         num2str(strain_to_yield), num2str(strain_to_ult), num2str(strain_to_fail)}; 
 
     row=num2str(ppp);
