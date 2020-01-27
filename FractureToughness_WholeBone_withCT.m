@@ -32,18 +32,23 @@ filename2=[filename2 '_MatlabOutput.xls'];
 header={'','Span (mm)', '5 Secant (N)', 'Max Force (N)', 'Failure Force (N)', 'Moment of Inertia (mm^4)','angle, initial','angle, instability', 'R_outer', 'R_inner', 'Thickness', 'K, init','K, max load', 'K, inst'};
 xlswrite(filename2, header, 1,'A1')                                         %make xls file
 [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
+CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
+specimen_list=CT_Data(:,1);
 
-while zzz==1
-    clearvars -except zzz kkk span CT_filename CT_pathname filename2 Info res filename3 Info2
+for jjj=58:length(specimen_list)
+    clearvars -except jjj kkk zzz span CT_Data filename2 Info res filename3 Info2 specimen_list
     close all
     
-    filename=uigetfile('*.csv; *.ods','Select Mechanical Test File');        %retrieve mechanical test file
+    specimen=num2str(specimen_list(jjj));
+    filename=[specimen '.xls'];
     
-    [~,specimen,~]=fileparts(filename);
+    if isfile(filename)
+    fprintf('Analyzing %s.\n',specimen)
+%     [~,specimen,~]=fileparts(filename);
    
     [P_5secant, P_max, P_final]=Toughness_MechTest(filename);
 
-    [I_circle, r_outer, r_inner]=Toughness_Geom(CT_filename, CT_pathname, specimen);
+    [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, specimen);
     
     [angle_init, angle_inst]=Toughness_AngleAnalysis(specimen);
 
@@ -76,7 +81,10 @@ while zzz==1
     
     kkk=kkk+1;     
     
-    zzz=menu('Do you have more data to analyze?','Yes','No');
+    else
+        fprintf('Mechanical data not found for %s.\n',specimen)
+        continue
+    end
 end
 close all
 end
@@ -116,8 +124,8 @@ end
 
 function [P_5secant, P_max, P_final]=Toughness_MechTest(filename)
 
-disp=-xlsread(filename,'B:B');%N
-load=-xlsread(filename,'C:C');%mm
+disp=-xlsread(filename,'D:D');%N
+load=-xlsread(filename,'E:E');%mm
 
 disp(find(isnan(load))) = [];
 load(find(isnan(load))) = [];
@@ -231,11 +239,9 @@ P_final=load(length(load));
 
 end
 
-function [I_circle, r_outer, r_inner]=Toughness_Geom(CT_filename, CT_pathname, specimen)
+function [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, specimen)
 
 % Get CT Data
-CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
-
 CT_Data_Row = find(CT_Data(:,1)==str2num(specimen));
 tCSA = CT_Data(CT_Data_Row,2); %mm^2
 MA = CT_Data(CT_Data_Row,3); %mm^2
@@ -255,8 +261,8 @@ function [angle_init, angle_inst]=Toughness_AngleAnalysis(specimen)
 %For this code to work, the SEM image needs to be rotated such that the
 %notch is on the bottom of the screen.
 
-filename=[specimen '_SEM.bmp'];
-image1=imread(filename); 
+SEMname=[specimen '_SEM.bmp'];
+image1=imread(SEMname); 
 
 figure
 imshow(image1)
@@ -275,8 +281,6 @@ if x_init1>x_init2
     y_init1=y_init2;
     y_init2=temp;
 end
-
-
 
 %initial notch angle
 %identify location of 1st point
@@ -303,7 +307,6 @@ end
 while angle_init>(2*pi)
     angle_init=angle_init-(2*pi);
 end
- 
 
 %select instability edge
 title('Please click on the two instability edges.')
@@ -322,7 +325,6 @@ if x_inst1>x_inst2
     y_inst1=y_inst2;
     y_inst2=temp;
 end
-
 
 %instability angle
 %identify location of 1st point
@@ -360,6 +362,5 @@ plot(x_inst2,y_inst2,'*b');
 
 % Save last figure as an image
 print ('-dpng', specimen)
-
 
 end
