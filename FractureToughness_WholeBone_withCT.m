@@ -35,7 +35,7 @@ xlswrite(filename2, header, 1,'A1')                                         %mak
 CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
 specimen_list=CT_Data(:,1);
 
-for jjj=58:length(specimen_list)
+for jjj=1:length(specimen_list)
     clearvars -except jjj kkk zzz span CT_Data filename2 Info res filename3 Info2 specimen_list
     close all
     
