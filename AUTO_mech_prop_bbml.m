@@ -13,13 +13,13 @@ tic
 % finds start, stop, and modulus on the curve, no longer requiring the user
 % to select points. HOWEVER:
 %!!!!!
-% It is recommended that the user always go through plot outputs to ensure
+% It is recommended that the user always go through the .COMP plots to ensure
 % that all points were selected correctly. Data with poorly selected points  
-% should be re-processed with Mech_prop_bbml.m.
+% should be manually re-processed with Mech_prop_bbml.m.
 %!!!!!
 
 % RKK adapted on 10/4/2019 to fix geometry inputs and allow for both femur 
-% and tibia testing. Logic to avoid overwriting files added 10/10/2019.
+% and tibia testing.
 
 % AGB adapted on 7/24/15 to not zero the load and displacement when you choose
 % the start point due to problems with rolling during testing. Instead, the
@@ -134,7 +134,6 @@ warning off MATLAB:xlswrite:AddSheet
 [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
 CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
 specimen_list=CT_Data(:,1);
-% NEED TO EDIT CT_GEOM SO THAT IT ONLY OUTPUTS NUMBERS IN THE SPECIMEN COLUMN
 
 % Cycle through specimen numbers
 for kkk=1:length(specimen_list)
@@ -145,7 +144,9 @@ number = num2str(specimen_list(kkk));
 specimen_name = [number '_' bonetype];
 ID = specimen_name;
 
-clear load_extension disp_extension
+if isfile([ID '.csv'])
+    
+clear load_extension disp_extension y_offset x_offset
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -173,9 +174,9 @@ displacement = position - load*compliance;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Moving average smoothing with span of 10 if selected initially
-% if smoothing == 1
-%     load = smooth(load,10,'moving');
-% end
+if smoothing == 1
+    load = smooth(load,10,'moving');
+end
 
 %Plot initial data for comparison
 figure ()
@@ -184,7 +185,7 @@ xlabel ('Displacement (microns)')
 ylabel ('Force (N)')
 hold on
 
-% Find elastic modulus ---------------------------------------------------
+% Find elastic modulus region ---------------------------------------------
 ultimate_load = max(load);
 i=5;
 j=10;
@@ -201,7 +202,7 @@ while y<ultimate_load
     j=j+5;
 end
 
-% Select the top 30 slope values and intercept values and average them. 
+% Select the top 30 slope values and average them. 
 slope2=slope1;
 
 for i=1:30
@@ -235,26 +236,16 @@ while load_extension(i)<load(1)
     disp_extension(i)=i-1;
     load_extension(i)=disp_extension(i)*slope;
 end
+
 position=position+disp_extension(end)-position(1);
 position=[disp_extension'; position];
 load=[load_extension';load];
 
-% Find failure point -----------------------------------------------------
-slopes=diff(position)./diff(load);
-
+% Find failure point ----------------------------------------------------
+% End is defined by curve moving backwards ("returning")
 for j=i:length(load)
-    % Stop if curve goes vertical
-    if slopes(j)<-100000 && slopes(j+5)<-10000
-        count2=j;
-        if max(load(j:end))>=load(j)
-            fprintf('Slope Fail %s.\n',number);
-        break
-        end
-    end
-    % Stop if curve is moving backwards
     if position(j)>position(j+10)
         count2=j;
-%         fprintf('Backwards Fail %s.\n',number);
         break
     end
 end
@@ -281,21 +272,14 @@ if bendtype == '4'
    stress = (load*a*c) / (2*I) * 10^-3;             %MPa
    strain = (6*c*displacement) / (a*(3*L - 4*a));   %microstrain
 end
-
- mod=mean(diff(stress(1:count1))./diff(strain(1:count1)));
- modulus=mod*10^3;
  
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-if bendtype == '3'
-    stiffness = modulus*48*I / (L^3) * 10^3;   % N/mm
-end
-
-if bendtype == '4'
-   stiffness = modulus*12*I / (a^2 * (3*L -4*a)) * 10^3;   % N/mm
-end
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Calculate elastic modulus
+k=length(disp_extension);
+fit2=polyfit(strain(1:k), stress(1:k),1);
+mod=fit2(1);
+modulus=mod*10^3;
+ 
 % Create line with a .2% offset (2000 microstrain)
 y_int = -mod*2000;        %y intercept
 y_offset = mod*strain + y_int;    %y coordinates of offest line
@@ -324,7 +308,7 @@ strain_to_fail = strain(i);
 %ULTIMATE LOAD POINT DATA
 [ultimate_load,i] = max(load);
 disp_to_ult = displacement(i);
-ultimate_load = stress(i);
+ultimate_stress = stress(i);
 strain_to_ult = strain(i);
 ultimate_index = i;
 
@@ -342,6 +326,16 @@ yield_index = j;
 postyield_disp = disp_to_fail - disp_to_yield;
 postyield_strain = strain_to_fail - strain_to_yield;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Calculate stiffness
+if bendtype == '3'
+    stiffness = modulus*48*I / (L^3) * 10^3;   % N/mm
+end
+
+if bendtype == '4'
+   stiffness = modulus*12*I / (a^2 * (3*L -4*a)) * 10^3;   % N/mm
+end
+
 %**************************************************************************
 %Find pre and post yield energies and toughnesses
 %Divide curves up into pre- and post-yield regions. 
@@ -358,7 +352,6 @@ postyield_toughness = total_toughness - preyield_toughness;
 preyield_work = trapz(displacement1,load1) / 10^3;             % In mJ
 total_work = trapz(displacement,load) / 10^3;
 postyield_work = total_work - preyield_work;
-
 
 %***********************************************************************
 %Plot final graphs of stress/strain
@@ -401,7 +394,7 @@ print ('-dpng', specimen_name)
 resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
         num2str(ultimate_load), num2str(disp_to_yield), num2str(postyield_disp), num2str(disp_to_fail), ...
         num2str(stiffness), num2str(preyield_work), num2str(postyield_work), ...
-        num2str(total_work), num2str(yield_stress), num2str(ultimate_load), ...
+        num2str(total_work), num2str(yield_stress), num2str(ultimate_stress), ...
         num2str(strain_to_yield), num2str(strain_to_fail), num2str(modulus),  ...
         num2str(preyield_toughness), num2str(total_toughness), '', specimen_name, ...
         num2str(yield_load), num2str(ultimate_load), num2str(fail_load), ...
@@ -414,6 +407,11 @@ resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
     xlswrite(xls, resultsxls, 'Data', rowcount)
 
 ppp=ppp+1;
+
+else
+    fprintf('Mechanical data not found for %s.\n',number)
+    continue
+end
 end
 toc
 end
