@@ -155,7 +155,7 @@ while y<ultimate_load
     j=j+10;
 end
 
-% Select the top 30 slope values and intercept values and average them. 
+% Select the top 30 slope values and average them. 
 slope2=slope1;
 
 for i=1:30
@@ -222,10 +222,11 @@ for x=length(disp_extension)+1:length(disp)
         num3=x;
     end
 end
-if exist('num3','var')
-else
-    num3=1;
-end
+
+%if exist('num3','var')
+%else
+%    num3=1;
+%end
     
 plot(disp(num3),load(num3),'*m')
 hold off
@@ -249,9 +250,6 @@ r_outer = sqrt(tCSA/pi); %mm
 r_inner = sqrt(MA/pi); %mm
 
 I_circle = (pi/4)*(r_outer.^4 - r_inner.^4); %mm^4
-
-
-
 
 end
 
