@@ -38,14 +38,15 @@ xlswrite(filename2, header, 1,'A1')                                         %mak
 CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
 specimen_list=CT_Data(:,1);
 
-for jjj=1:length(specimen_list)
+for jjj=13:length(specimen_list)
     clearvars -except jjj kkk zzz span CT_Data filename2 Info res filename3 Info2 specimen_list
     close all
     
     specimen=num2str(specimen_list(jjj));
     filename=[specimen '.xls'];
+    SEMname=[specimen '_SEM.bmp'];
     
-    if isfile(filename)
+    if isfile(filename) && isfile(SEMname)
     fprintf('Analyzing %s.\n',specimen)
 %     [~,specimen,~]=fileparts(filename);
    
@@ -53,7 +54,7 @@ for jjj=1:length(specimen_list)
 
     [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, specimen);
     
-    [angle_init, angle_inst]=Toughness_AngleAnalysis(specimen);
+    [angle_init, angle_inst]=Toughness_AngleAnalysis(SEMname, specimen);
 
     [K_init, K_maxP, K_inst]=Toughness_CalculatingK(span,angle_init,angle_inst, r_outer, r_inner, I_circle, P_5secant, P_max, P_final);
 
@@ -84,9 +85,11 @@ for jjj=1:length(specimen_list)
     
     kkk=kkk+1;     
     
-    else
+    elseif isfile(SEMname)
         fprintf('Mechanical data not found for %s.\n',specimen)
         continue
+    else
+        fprintf('SEM file not found for %s.\n',specimen)
     end
 end
 close all
@@ -103,22 +106,20 @@ t=r_outer-r_inner;%mm
 t=t/1000;%m
 v=angle_init/pi;
 e=log10(t/rm);
+
 Ab=0.65133-0.5774*e-0.3427*e^2-0.0681*e^3;
 Bb=1.879+4.795*e+2.343*e^2-0.6197*e^3;
 Cb=-9.779-38.14*e-6.611*e^2+3.972*e^3;
 Db=34.56+129.9*e+50.55*e^2+3.374*e^3;
 Eb=-30.82-147.6*e-78.38*e^2-15.54*e^3;
-
-
 Fb=(1+(t/(2*rm)))*(Ab+Bb*v+Cb*v^2+Db*v^3+Eb*v^4);
 
 K_init=Fb*((P_5secant*s*r_outer)/(4*I))*((pi*rm*angle_init)^0.5);
 
 K_maxP=Fb*((P_max*s*r_outer)/(4*I))*((pi*rm*angle_init)^0.5);
 
-
-
 v=angle_inst/pi;
+
 Fb=(1+(t/(2*rm)))*(Ab+Bb*v+Cb*v^2+Db*v^3+Eb*v^4);
 
 K_inst=Fb*((P_final*s*r_outer)/(4*I))*((pi*rm*angle_inst)^0.5);
@@ -139,7 +140,7 @@ plot(disp,load)
 hold on
 
 % Find elastic modulus ---------------------------------------------------
-[ultimate_load, n] = max(load);
+ultimate_load= max(load);
 i=50;
 j=100;
 y=load(1:i);
@@ -253,12 +254,10 @@ I_circle = (pi/4)*(r_outer.^4 - r_inner.^4); %mm^4
 
 end
 
-function [angle_init, angle_inst]=Toughness_AngleAnalysis(specimen)
+function [angle_init, angle_inst]=Toughness_AngleAnalysis(SEMname, specimen)
 
 %For this code to work, the SEM image needs to be rotated such that the
 %notch is on the bottom of the screen.
-
-SEMname=[specimen '_SEM.bmp'];
 image1=imread(SEMname); 
 
 figure
