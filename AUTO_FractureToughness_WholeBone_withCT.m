@@ -26,30 +26,54 @@ function AUTO_FractureToughness_WholeBone_withCT()
 clear all
 close all
 
-zzz=1;
-kkk=1;
-span=input('Please input the span of the test fixture: ');                  %usually 6 mm
+span=input('Please input the span of the test fixture: ');                  %usually 7.5 mm
 filename2=input('Please input the filename for the output: ','s');          %name of output file
+
+% Creating output file
 filename2=[filename2 '_MatlabOutput.xls'];
 header={'','Span (mm)', '5 Secant (N)', 'Max Force (N)', 'Failure Force (N)', 'Moment of Inertia (mm^4)','angle, initial','angle, instability', 'R_outer', 'R_inner', 'Thickness', 'K, init','K, max load', 'K, inst'};
 xlswrite(filename2, header, 1,'A1')                                         %make xls file
 
+% Getting CT Data
 [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
 CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
 specimen_list=CT_Data(:,1);
 
-for jjj=13:length(specimen_list)
-    clearvars -except jjj kkk zzz span CT_Data filename2 Info res filename3 Info2 specimen_list
+% Loop through specimen numbers listed in CT_Data file
+for jjj=1:length(specimen_list)
+    
+    clearvars -except jjj span CT_Data filename2 res filename3 Info2 specimen_list
     close all
     
     specimen=num2str(specimen_list(jjj));
+    
+    % Check if specimen has already been run
+    zzz=2;
+    row=num2str(zzz);
+    cell=['A' row];
+    
+    while xlsread(filename2,'Sheet1',cell) ~=0
+        if xlsread(filename2,'Sheet1',cell)==str2num(specimen)
+            break
+        end
+        zzz=zzz+1;
+        row=num2str(zzz);
+        cell=['A' row];
+    end
+
+    if xlsread(filename2,'Sheet1',cell)==str2num(specimen)
+        fprintf('%s has already been analyzed. Moving to next specimen.\n',specimen)
+        continue
+    end
+    
     filename=[specimen '.xls'];
     SEMname=[specimen '_SEM.bmp'];
     
+    % Check if mechanical and SEM files are both present
     if isfile(filename) && isfile(SEMname)
     fprintf('Analyzing %s.\n',specimen)
-%     [~,specimen,~]=fileparts(filename);
-   
+    
+    % Run through these functions, detailed below
     [P_5secant, P_max, P_final]=Toughness_MechTest(filename,specimen);
 
     [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, specimen);
@@ -58,36 +82,18 @@ for jjj=13:length(specimen_list)
 
     [K_init, K_maxP, K_inst]=Toughness_CalculatingK(span,angle_init,angle_inst, r_outer, r_inner, I_circle, P_5secant, P_max, P_final);
 
+    % Calculate and print final outputs
     angle_init=angle_init*180/pi;
     angle_inst=angle_inst*180/pi;
     thickness=r_outer-r_inner;
 
-    Info(kkk,:)=[{filename}, span, P_5secant, P_max, P_final, I_circle, angle_init, angle_inst, r_outer, r_inner, thickness, K_init, K_maxP, K_inst];
+    Info=[{specimen}, span, P_5secant, P_max, P_final, I_circle, angle_init, angle_inst, r_outer, r_inner, thickness, K_init, K_maxP, K_inst];
 
-% RKK added loop to avoid writing over pre-existing file. This way, if 
-% an error happens during a run, the program can be restarted without 
-% losing previous work or data.
-    zzz=zzz+1;
-    row=num2str(zzz);
-    cell=['B' row];
-    
-    % Find first empty row in existing file
-    while xlsread(filename2,'Sheet1',cell) ~=0
-        zzz=zzz+1;
-        row=num2str(zzz);
-        cell=['B' row];
-    end
-    
     % Write data
-    row=num2str(zzz);
-    rowcount=['A' row];
-    xlswrite(filename2, Info, 1, rowcount)
-    
-    kkk=kkk+1;     
+    xlswrite(filename2, Info, 1, cell)
     
     elseif isfile(SEMname)
         fprintf('Mechanical data not found for %s.\n',specimen)
-        continue
     else
         fprintf('SEM file not found for %s.\n',specimen)
     end
