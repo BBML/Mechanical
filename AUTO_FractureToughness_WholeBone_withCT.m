@@ -15,8 +15,8 @@ function AUTO_FractureToughness_WholeBone_withCT()
 
 %% Setup
 
-% Mechanical Test File: 'specimen_number.xls' e.g. 716.xls (OR .ods, .csv)
-% SEM File: 'specimen_number_SEM.bmp' e.g. 716_SEM.xls
+% Mechanical Test File: 'specimen_number.xls' e.g. 716.xls
+% SEM File: 'specimen_number_SEM.bmp' e.g. 716_SEM.bmp
 % CT File: Naming convention doesn't matter, but the specimen number needs
 % to be in column 'A', the total cross-sectional area needs to be in column
 % 'B', and the marrow area needs to be in column 'C'
@@ -32,7 +32,7 @@ filename2=input('Please input the filename for the output: ','s');          %nam
 % Creating output file
 filename2=[filename2 '_MatlabOutput.xls'];
 header={'','Span (mm)', '5 Secant (N)', 'Max Force (N)', 'Failure Force (N)', 'Moment of Inertia (mm^4)','angle, initial','angle, instability', 'R_outer', 'R_inner', 'Thickness', 'K, init','K, max load', 'K, inst'};
-xlswrite(filename2, header, 1,'A1')                                         %make xls file
+xlswrite(filename2, header, 1,'A1')                                         
 
 % Getting CT Data
 [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
