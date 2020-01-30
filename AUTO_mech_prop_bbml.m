@@ -415,7 +415,6 @@ resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
 ppp=ppp+1;
 else
     fprintf('Mechanical data not found for %s.\n',number)
-    continue
 end
 end
 toc
