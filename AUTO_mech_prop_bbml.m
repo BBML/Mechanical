@@ -135,6 +135,8 @@ warning off MATLAB:xlswrite:AddSheet
 CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
 specimen_list=CT_Data(:,1);
 
+% NEED TO EDIT CT_GEOM SO THAT IT ONLY OUTPUTS NUMBERS IN THE SPECIMEN COLUMN
+
 % Cycle through specimen numbers
 for kkk=1:length(specimen_list)
     
@@ -146,7 +148,7 @@ ID = specimen_name;
 
 if isfile([ID '.csv'])
     
-clear load_extension disp_extension y_offset x_offset
+clear load_extension disp_extension y_offset x_offset slope1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -192,9 +194,12 @@ j=10;
 y=load(1:i);
 x=position(1:i);
 
-while y<ultimate_load 
+while y<ultimate_load
     fit=polyfit(x,y,1);
+    % Avoid including "bumps" as slope samples
+    if fit(1)>0.01
     slope1(i)=fit(1);
+    end
     % Go to next set of points
     y=load(i:j);
     x=position(i:j);
@@ -202,10 +207,11 @@ while y<ultimate_load
     j=j+5;
 end
 
-% Select the top 30 slope values and average them. 
+% Select the top 20 slope values and average them. 
 slope2=slope1;
+m=zeros(1,20);
 
-for i=1:30
+for i=1:20
     [k,j]=max(slope2);
     slope2(j)=0;
     m(i)=k;
@@ -217,7 +223,7 @@ slope=mean(m);
 mt=slope1(1);
 count1=1;
 
-while mt<m(30)
+while mt<m(20)
     count1=count1+1;
     mt=slope1(count1);
 end
@@ -242,7 +248,7 @@ position=[disp_extension'; position];
 load=[load_extension';load];
 
 % Find failure point ----------------------------------------------------
-% End is defined by curve moving backwards ("returning")
+% End is defined by curve moving backwards (load cell "returning")
 for j=i:length(load)
     if position(j)>position(j+10)
         count2=j;
@@ -327,7 +333,7 @@ postyield_disp = disp_to_fail - disp_to_yield;
 postyield_strain = strain_to_fail - strain_to_yield;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Calculate stiffness
+
 if bendtype == '3'
     stiffness = modulus*48*I / (L^3) * 10^3;   % N/mm
 end
@@ -367,7 +373,7 @@ ylabel('Stress (MPa)')
 hold on
 %plot(linear_strain,linear_stress,'r')
 plot(x_offset,y_offset, 'k')
-plot(strain_to_yield, yield_stress, 'k+', strain_to_ult, ultimate_load, 'k+', ...
+plot(strain_to_yield, yield_stress, 'k+', strain_to_ult, ultimate_stress, 'k+', ...
      strain_to_fail, fail_stress, 'k+')
 hold off
 
@@ -385,7 +391,7 @@ hold off
 %**************************** OUTPUT *********************************************
 
 % Saves an image of figure 3 (summary of mechanical properties)
-print ('-dpng', specimen_name) 
+print ('-dpng', [number '_A']) 
 
 % Writes values for mechanical properties to analyze to a xls file with column headers. There
 % will be an empty cell afer which outputs for a schematic
@@ -399,7 +405,7 @@ resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
         num2str(preyield_toughness), num2str(total_toughness), '', specimen_name, ...
         num2str(yield_load), num2str(ultimate_load), num2str(fail_load), ...
         num2str(disp_to_yield), num2str(disp_to_ult), num2str(disp_to_fail), ...
-        num2str(yield_stress), num2str(ultimate_load), num2str(fail_stress), ...
+        num2str(yield_stress), num2str(ultimate_stress), num2str(fail_stress), ...
         num2str(strain_to_yield), num2str(strain_to_ult), num2str(strain_to_fail)}; 
 
     row=num2str(ppp);
@@ -407,7 +413,6 @@ resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
     xlswrite(xls, resultsxls, 'Data', rowcount)
 
 ppp=ppp+1;
-
 else
     fprintf('Mechanical data not found for %s.\n',number)
     continue
