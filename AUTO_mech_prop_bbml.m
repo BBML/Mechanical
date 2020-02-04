@@ -12,11 +12,12 @@ tic
 % 1/22/2020 RKK made this a batch-process code. The code now automatically
 % finds start, stop, and modulus on the curve, no longer requiring the user
 % to select points. HOWEVER:
-%!!!!!
+
+%*************************************************************************
 % It is recommended that the user always go through the .COMP plots to ensure
 % that all points were selected correctly. Data with poorly selected points  
 % should be manually re-processed with Mech_prop_bbml.m.
-%!!!!!
+%*************************************************************************
 
 % RKK adapted on 10/4/2019 to fix geometry inputs and allow for both femur 
 % and tibia testing.
@@ -198,7 +199,7 @@ x=position(1:i);
 while y<ultimate_load
     fit=polyfit(x,y,1);
     % Avoid including "bumps" as slope samples
-    if fit(1)>0.005
+    if fit(1)>0.01
     slope1(i)=fit(1);
     end
     % Go to next set of points
@@ -419,5 +420,7 @@ else
     fprintf('Mechanical data not found for %s.\n',number)
 end
 end
+fprintf('-----------------ANALSYIS COMPLETE------------------\n')
 toc
+fprintf('Remember to check output plots!!!\nManually re-run any specimens that looks wrong with Mech_prop_bbml.\n')
 end
