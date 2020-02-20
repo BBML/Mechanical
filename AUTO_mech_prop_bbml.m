@@ -207,11 +207,11 @@ while y<ultimate_load
     j=j+5;
 end
 
-% Select the top 30 slope values and average them. 
+% Select the top 20 slope values and average them. 
 slope2=slope1;
-m=zeros(1,30);
+m=zeros(1,20);
 
-for i=1:30
+for i=1:20
     [k,j]=max(slope2);
     slope2(j)=0;
     m(i)=k;
@@ -223,7 +223,7 @@ slope=mean(m);
 mt=slope1(1);
 count1=1;
 
-while mt<m(30)
+while mt<m(20)
     count1=count1+1;
     mt=slope1(count1);
 end
