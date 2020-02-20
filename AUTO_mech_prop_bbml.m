@@ -157,12 +157,12 @@ clear load_extension disp_extension y_offset x_offset slope1
 CT_Data_Row = find(strcmp(CT_Data,ID));
 
 if bone == 'F'
-    I =   CT_Data(CT_Data_Row,16); %I_ml         
-    c =   CT_Data(CT_Data_Row,19)*1000; %c_ant
+    I =   CT_Data{CT_Data_Row,16}; %I_ml         
+    c =   CT_Data{CT_Data_Row,19}*1000; %c_ant
     
 elseif bone == 'T'
-    I =   CT_Data(CT_Data_Row,15); %I_ap          
-    c =   CT_Data(CT_Data_Row,18)*1000; %c_med
+    I =   CT_Data{CT_Data_Row,15}; %I_ap          
+    c =   CT_Data{CT_Data_Row,18}*1000; %c_med
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
