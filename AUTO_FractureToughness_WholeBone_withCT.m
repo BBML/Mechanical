@@ -308,7 +308,7 @@ mod=fit2(1);
 modulus=mod*10^3; %GPa
  
 % Create line with a .2% offset (2000 microstrain)
-y_int = -mod*20000;        %y intercept
+y_int = -mod*2000;        %y intercept
 y_offset = mod*strain + y_int;    %y coordinates of offest line
 
 %Find indeces where the line crosses the x-axis and the stres-strain curve.
