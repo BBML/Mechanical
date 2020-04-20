@@ -197,7 +197,7 @@ end
 
 function [P_yield, P_max, P_final]=Toughness_MechTest(filename,specimen,ppp,span,bone,CT_Data)
 
-position=xlsread(filename,'D:D')*10^3;%microns
+position=-xlsread(filename,'D:D')*10^3;%microns
 load=-xlsread(filename,'E:E');%N
 
 position(find(isnan(load))) = [];
