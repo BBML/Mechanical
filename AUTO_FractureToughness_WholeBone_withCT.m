@@ -13,95 +13,158 @@ function AUTO_FractureToughness_WholeBone_withCT()
 
 % Edited 1/28/20 by Rachel Kohler to automate the mechanical point-picking.
 
+% Edited 4/20 by Rachel Kohler to add extra do-dadds such as changing
+% input method, checking if a specimen has already been analyzed, adding 
+% compatibility for alpha-numeric specimen names, and creating subfolders
+% of output plots.
+% Further, the method of calculating yield load was changed from using the
+% secant method to the 0.2% offset method, due to issues with accuracy.
+
 %% Setup
 
-% Mechanical Test File: 'specimen_number.xls' e.g. 716.xls
+% Mechanical Test File: 'specimen_number.xls' e.g. 716.xls (OR .ods, .csv)
 % SEM File: 'specimen_number_SEM.bmp' e.g. 716_SEM.bmp
 % CT File: Naming convention doesn't matter, but the specimen number needs
 % to be in column 'A', the total cross-sectional area needs to be in column
 % 'B', and the marrow area needs to be in column 'C'
 
 %% Code
+%*****************\TESTING CONFIGURATION/**********************************
+%                                                                         *
+%   Adjust these values to match the system setup.                        *
+%                                                                         *
+span = 7.50;           %span between bottom load points (mm)              *
+compliance = 0;     %system compliance (microns/N)                        *
+side = 'L';         %input 'R' for right and 'L' for left                 *
+bone = 'T';         %enter 'F' for femur and 'T' for tibia                *
+filename2 = 'Amish16wk_';    %enter study label for output excel sheet (eg 'STZ_')*
+%**************************************************************************
 
-clear all
-close all
+%Check common errors in testing configuration
+if strcmp(side,'L') == 0 && strcmp(side,'R') == 0
+        error('Please enter R or L for side as a string in the Testing Configuration')
+end
 
-span=input('Please input the span of the test fixture: ');                  %usually 7.5 mm
-filename2=input('Please input the filename for the output: ','s');          %name of output file
+if bone ~= 'F' && bone ~= 'T'
+        error('Please F or T for bone as a string in the Testing Configuration')
+end
 
-% Creating output file
-filename2=[filename2 '_MatlabOutput.xls'];
-header={'','Span (mm)', '5 Secant (N)', 'Max Force (N)', 'Failure Force (N)', 'Moment of Inertia (mm^4)','angle, initial','angle, instability', 'R_outer', 'R_inner', 'Thickness', 'K, init','K, max load', 'K, inst'};
-xlswrite(filename2, header, 1,'A1')                                         
+% RKK added final check to ensure that user edits testing configuration values
+answer = questdlg('Have you modified the testing configuration values?', ...
+	'Sanity Check', ...
+	'Yes','No','Huh?','Huh?');
+% Handle response
+switch answer
+    case 'Yes'
+    case 'No'
+        disp([answer '. Please edit testing configuration values.'])
+        return
+    case 'Huh?'
+        disp([answer ' See line 29 in the code. Please edit testing configuration values.'])
+        return
+end
 
-% Getting CT Data
+% Predefine variables and create output file
+xls=[filename2 'FXoutput.xls'];
+
+% span=input('Please input the span of the test fixture: ');                  %usually 6 mm
+% filename2=input('Please input the filename for the output: ','s');          %name of output file
+% filename2=[filename2 '_FXoutput.xls'];
+header={'','Span (mm)', 'Yield Force (N)', 'Max Force (N)', 'Failure Force (N)', 'Moment of Inertia (mm^4)','angle, initial','angle, instability', 'R_outer', 'R_inner', 'Thickness', 'K, init','K, max load', 'K, inst'};
+xlswrite(xls, header, 1,'A1')                                         %make xls file
+
+% Make folders for output images
+mkdir('Before-After Comp')
+mkdir('Stress-Strain Plots')
+mkdir('SEM Points')
+
 [CT_filename, CT_pathname] = uigetfile({'*.xls;*.xlsx;*.csv','Excel Files (*.xls,*.xlsx,*.csv)'; '*.*',  'All Files (*.*)'},'Pick the file with CT info');
-CT_Data = xlsread([CT_pathname CT_filename],'Raw Data');
-specimen_list=CT_Data(:,1);
+[~,~,CT_Data] = xlsread([CT_pathname CT_filename],'Raw Data');
+specimen_list=CT_Data(2:end,1);
 
-% Loop through specimen numbers listed in CT_Data file
+zzz=1;
+
 for jjj=1:length(specimen_list)
-    
-    clearvars -except jjj span CT_Data filename2 res filename3 Info2 specimen_list
+    clearvars -except xls b jjj zzz bone span CT_Data filename2 Info res filename3 Info2 specimen_list
     close all
     
-    specimen=num2str(specimen_list(jjj));
+    specimen=specimen_list{jjj};
+    ppp=jjj+1;
     
-    % Check if specimen has already been run
-    zzz=2;
-    row=num2str(zzz);
-    cell=['A' row];
-    
-    while xlsread(filename2,'Sheet1',cell) ~=0
-        if xlsread(filename2,'Sheet1',cell)==str2num(specimen)
-            break
-        end
-        zzz=zzz+1;
-        row=num2str(zzz);
-        cell=['A' row];
+    if isnumeric(specimen)
+        specimen=num2str(specimen);
     end
 
-    if xlsread(filename2,'Sheet1',cell)==str2num(specimen)
-        fprintf('%s has already been analyzed. Moving to next specimen.\n',specimen)
-        continue
-    end
-    
     filename=[specimen '.xls'];
     SEMname=[specimen '_SEM.bmp'];
     
-    % Check if mechanical and SEM files are both present
     if isfile(filename) && isfile(SEMname)
-    fprintf('Analyzing %s.\n',specimen)
+   
+    % Find first empty row in output file
+    zzz=zzz+1;
+    row=num2str(zzz);
+    cell=['A' row];
+    b=0;
     
-    % Run through these functions, detailed below
-    [P_5secant, P_max, P_final]=Toughness_MechTest(filename,specimen);
+    while xlsread(xls,1,cell) ~=0
+        % Check if the specimen has already been analyzed
+        if xlsread(xls,1,cell)==str2num(specimen)
+            b=1;
+            break
+        else
+            zzz=zzz+1;
+            row=num2str(zzz);
+            cell=['A' row];
+        end
+    end
+    
+    % Option to redo a previously analyzed specimen or continue to next
+    if b==1
+        b=0;
+        answer = questdlg(sprintf('%s has already been processed. Would you like to redo %s?',specimen), ...
+            'Sanity Check', ...
+            'Yes','No','No');
+        % Handle response
+        switch answer
+            case 'Yes'
+            case 'No'
+                continue
+        end
+    end
+    
+    % Start analysis
+    fprintf('Analyzing %s.\n',specimen)
+   
+    [P_yield, P_max, P_final]=Toughness_MechTest(filename,specimen,ppp,span,bone,CT_Data);
 
-    [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, specimen);
+    [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, ppp);
     
     [angle_init, angle_inst]=Toughness_AngleAnalysis(SEMname, specimen);
 
-    [K_init, K_maxP, K_inst]=Toughness_CalculatingK(span,angle_init,angle_inst, r_outer, r_inner, I_circle, P_5secant, P_max, P_final);
+    [K_init, K_maxP, K_inst]=Toughness_CalculatingK(span,angle_init,angle_inst, r_outer, r_inner, I_circle, P_yield, P_max, P_final);
 
-    % Calculate and print final outputs
     angle_init=angle_init*180/pi;
     angle_inst=angle_inst*180/pi;
     thickness=r_outer-r_inner;
 
-    Info=[{specimen}, span, P_5secant, P_max, P_final, I_circle, angle_init, angle_inst, r_outer, r_inner, thickness, K_init, K_maxP, K_inst];
-
+    Info=[{specimen}, span, P_yield, P_max, P_final, I_circle, angle_init, angle_inst, r_outer, r_inner, thickness, K_init, K_maxP, K_inst];
+    
     % Write data
-    xlswrite(filename2, Info, 1, cell)
+    rowcount=['A' row];
+    xlswrite(xls, Info, 1, rowcount)   
     
     elseif isfile(SEMname)
         fprintf('Mechanical data not found for %s.\n',specimen)
+        continue
     else
-        fprintf('SEM file not found for %s.\n',specimen)
+        fprintf('SEM image not found for %s.\n',specimen)
     end
 end
+fprintf('----------------- ANALYSIS COMPLETE ------------------\n')
 close all
 end
 
-function [K_init, K_maxP, K_inst]=Toughness_CalculatingK(s,angle_init,angle_inst, r_outer, r_inner, I, P_5secant, P_max, P_final)
+function [K_init, K_maxP, K_inst]=Toughness_CalculatingK(s,angle_init,angle_inst, r_outer, r_inner, I, P_yield, P_max, P_final)
 
 angle_init=angle_init/2;
 angle_inst=angle_inst/2;
@@ -120,7 +183,7 @@ Db=34.56+129.9*e+50.55*e^2+3.374*e^3;
 Eb=-30.82-147.6*e-78.38*e^2-15.54*e^3;
 Fb=(1+(t/(2*rm)))*(Ab+Bb*v+Cb*v^2+Db*v^3+Eb*v^4);
 
-K_init=Fb*((P_5secant*s*r_outer)/(4*I))*((pi*rm*angle_init)^0.5);
+K_init=Fb*((P_yield*s*r_outer)/(4*I))*((pi*rm*angle_init)^0.5);
 
 K_maxP=Fb*((P_max*s*r_outer)/(4*I))*((pi*rm*angle_init)^0.5);
 
@@ -132,9 +195,9 @@ K_inst=Fb*((P_final*s*r_outer)/(4*I))*((pi*rm*angle_inst)^0.5);
 
 end
 
-function [P_5secant, P_max, P_final]=Toughness_MechTest(filename,specimen)
+function [P_yield, P_max, P_final]=Toughness_MechTest(filename,specimen,ppp,span,bone,CT_Data)
 
-position=-xlsread(filename,'D:D')*10^3;%microns
+position=xlsread(filename,'D:D')*10^3;%microns
 load=-xlsread(filename,'E:E');%N
 
 position(find(isnan(load))) = [];
@@ -217,41 +280,82 @@ load=load(1:count2);
 disp=disp(1:count2);
 
 %  Plot truncated data set to compare with original data set
+cd('Before-After Comp')
 plot(disp, load,'k')
-hold on
-
-% Calculate values
-secant5=slope*0.95;
-secant5load=disp*secant5;
-
-for x=length(disp_extension)+1:length(disp)
-    if secant5load(x)<=load(x)
-        num3=x;
-    end
-end
-
-%if exist('num3','var')
-%else
-%    num3=1;
-%end
-    
-plot(disp(num3),load(num3),'*m')
 hold off
 label=[specimen '_COMP'];
 print ('-dpng', label);
+cd('..')
 
-P_5secant=load(num3);
-P_max=max(load);
-P_final=load(length(load));
-
+% Calculate stress/strain plot
+if bone == 'F'
+    I =   CT_Data{ppp,16}; %I_ml         
+    c =   CT_Data{ppp,19}*1000; %c_ant
+    
+elseif bone == 'T'
+    I =   CT_Data{ppp,8}; %I_ap          
+    c =   CT_Data{ppp,12}*1000; %c_med
 end
 
-function [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, specimen)
+stress = (load*span*c) / (4*I) * 10^-3;             %MPa
+strain = (12*c*disp) / (span^2); 
+
+% Calculate elastic modulus
+k=length(disp_extension);
+fit2=polyfit(strain(1:k), stress(1:k),1);
+mod=fit2(1);
+
+modulus=mod*10^3; %GPa
+ 
+% Create line with a .2% offset (2000 microstrain)
+y_int = -mod*20000;        %y intercept
+y_offset = mod*strain + y_int;    %y coordinates of offest line
+
+%Find indeces where the line crosses the x-axis and the stres-strain curve.
+%Then truncate offset line between those points
+for j = 1 : length(y_offset)
+    if y_offset(j) <= 0
+        i=j+1;
+    end
+    if y_offset(j) >= stress(j)
+        break
+    end
+end
+
+x_offset = strain(i:j);
+y_offset = y_offset(i:j);
+
+%YIELD POINT DATA
+[P_max,i] = max(load);
+if j > i
+    j=i;
+end
+P_yield = load(j);
+yield_stress = stress(j);
+strain_to_yield = strain(j);
+yield_index = j;
+P_final=load(length(load));
+
+% Save output plot
+cd('Stress-Strain Plots')
+
+figure()
+plot(strain,stress)
+hold on
+plot(x_offset,y_offset, 'k')
+plot(strain_to_yield, yield_stress, 'k+')
+xlabel('Strain (\mu\epsilon)')
+ylabel('Stress (MPa)')
+legend('Stress-Strain Curve', '0.2% Off-set','Yield Point','location','southeast')
+print ('-dpng', specimen);
+cd('..')
+end
+
+function [I_circle, r_outer, r_inner]=Toughness_Geom(CT_Data, ppp)
 
 % Get CT Data
-CT_Data_Row = find(CT_Data(:,1)==str2num(specimen));
-tCSA = CT_Data(CT_Data_Row,2); %mm^2
-MA = CT_Data(CT_Data_Row,3); %mm^2
+tCSA = CT_Data{ppp,2}; %mm^2
+MA = CT_Data{ppp,3}; %mm^2
 
 r_outer = sqrt(tCSA/pi); %mm
 r_inner = sqrt(MA/pi); %mm
@@ -363,6 +467,7 @@ plot(x_inst1,y_inst1,'*b');
 plot(x_inst2,y_inst2,'*b');
 
 % Save last figure as an image
+cd('SEM Points')
 print ('-dpng', specimen)
-
+cd('..')
 end
