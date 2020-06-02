@@ -73,12 +73,12 @@ dbstop if error
 %                                                                         *
 %   Adjust these values to match the system setup.                        *
 %                                                                         *
-L = 9.00;           %span between bottom load points (mm)                 *
+L = 7.50;           %span between bottom load points (mm)                 *
 a = 4.00;           %distance between outer and inner points (if 4pt; mm) *
-bendtype = '4';     %enter '4' for 4pt and '3' for 3pt bending            *
+bendtype = '3';     %enter '4' for 4pt and '3' for 3pt bending            *
 compliance = 0;     %system compliance (microns/N)                        *
 side = 'R';         %input 'R' for right and 'L' for left                 *
-bone = 'T';         %enter 'F' for femur and 'T' for tibia                *
+bone = 'F';         %enter 'F' for femur and 'T' for tibia                *
 smoothing = 1;      %enter 1 to smooth using moving average (span=10)     *
 study = 'test_';    %enter study label for output excel sheet (eg 'STZ_') *
 %**************************************************************************
@@ -125,9 +125,9 @@ bonetype = [side bone];
 xls=[study bonetype '_mechanics.xls'];
 
 if bone == 'T'
-    headers = {'Specimen','I_ap (mm^4)','c_med (Âµm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (Âµm)','Postyield Displacement (Âµm)','Total Displacment (Âµm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (Âµ?)','Total Strain (Âµ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (Âµm)','Ultimate Displacement (Âµm)','Total Displacment (Âµm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (Âµ?)','Ultimate Strain (Âµ?)','Total Strain (Âµ?)'};
+    headers = {'Specimen','I_ap (mm^4)','c_med (µm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (µm)','Postyield Displacement (µm)','Total Displacment (µm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (µ?)','Total Strain (µ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (µm)','Ultimate Displacement (µm)','Total Displacment (Âµm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (µ?)','Ultimate Strain (µ?)','Total Strain (µ?)'};
 elseif bone == 'F'
-    headers = {'Specimen','I_ml (mm^4)','c_ant (Âµm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (Âµm)','Postyield Displacement (Âµm)','Total Displacment (Âµm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (Âµ?)','Total Strain (Âµ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (Âµm)','Ultimate Displacement (Âµm)','Total Displacment (Âµm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (Âµ?)','Ultimate Strain (Âµ?)','Total Strain (Âµ?)'};
+    headers = {'Specimen','I_ml (mm^4)','c_ant (µm)','Yield Force (N)','Ultimate Force (N)','Displacement to Yield (µm)','Postyield Displacement (µm)','Total Displacment (µm)','Stiffness (N/mm)','Work to Yield (mJ)','Postyield Work (mJ)','Total Work (mJ)','Yield Stress (MPa)','Ultimate Stress (MPa)','Strain to Yield (µ?)','Total Strain (µ?)','Modulus (GPa)','Resilience (MPa)','Toughness (MPa)',' ','Specimen','Yield Force (N)','Ultimate Force (N)','Failure Force (N)','Displacement to Yield (µm)','Ultimate Displacement (µm)','Total Displacment (Âµm)','Yield Stress (MPa)','Ultimate Stress (MPa)','Failure Stress (MPa)','Strain to Yield (µ?)','Ultimate Strain (µ?)','Total Strain (µ?)'};
 end
 
 xlswrite(xls, headers, 'Data', 'A1')
@@ -140,10 +140,13 @@ specimen_list=CT_Data(2:end,1);
 
 % Cycle through specimen numbers
 for kkk=1:length(specimen_list)
+ppp=kkk+1;
+ID=specimen_list{kkk};
 
-specimen_name=specimen_list{kkk};
-ID = specimen_name;
-
+if isnumeric(ID)
+    ID=num2str(ID);
+end
+    
 %Checks if mechanical file exists
 
 if isfile([ID '.csv'])
@@ -154,15 +157,13 @@ clear load_extension disp_extension y_offset x_offset slope1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %This is where we pull in data from the CT, the row for I and c are critical.
 
-CT_Data_Row = find(strcmp(CT_Data,ID));
-
 if bone == 'F'
-    I =   CT_Data{CT_Data_Row,16}; %I_ml         
-    c =   CT_Data{CT_Data_Row,19}*1000; %c_ant
+    I =   CT_Data{ppp,16}; %I_ml         
+    c =   CT_Data{ppp,19}*1000; %c_ant
     
 elseif bone == 'T'
-    I =   CT_Data{CT_Data_Row,15}; %I_ap          
-    c =   CT_Data{CT_Data_Row,18}*1000; %c_med
+    I =   CT_Data{ppp,15}; %I_ap          
+    c =   CT_Data{ppp,18}*1000; %c_med
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -251,10 +252,12 @@ load=[load_extension';load];
 % End is defined by curve moving backwards (load cell "returning")
 [~,p] = max(load);
 
-for j=p:length(load)
+for j=p:length(load)-10
     if position(j)>position(j+10)
         count2=j;
         break
+    else
+        count2=j;
     end
 end
 
@@ -266,7 +269,7 @@ displacement = position - load*compliance;
 %  Plot truncated data set to compare with original data set
 plot(position, load,'k')
 hold off
-label=[specimen_name '_COMP'];
+label=[ID '_COMP'];
 print ('-dpng', label)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -394,18 +397,18 @@ hold off
 %**************************** OUTPUT *********************************************
 
 % Saves an image of figure 3 (summary of mechanical properties)
-print ('-dpng', specimen_name) 
+print ('-dpng', ID) 
 
 % Writes values for mechanical properties to analyze to a xls file with column headers. There
 % will be an empty cell afer which outputs for a schematic
 % representation of the f/d and stress/strain curves will appear.
 
-resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
+resultsxls = {ID, num2str(I), num2str(c), num2str(yield_load), ...
         num2str(ultimate_load), num2str(disp_to_yield), num2str(postyield_disp), num2str(disp_to_fail), ...
         num2str(stiffness), num2str(preyield_work), num2str(postyield_work), ...
         num2str(total_work), num2str(yield_stress), num2str(ultimate_stress), ...
         num2str(strain_to_yield), num2str(strain_to_fail), num2str(modulus),  ...
-        num2str(preyield_toughness), num2str(total_toughness), '', specimen_name, ...
+        num2str(preyield_toughness), num2str(total_toughness), '', ID, ...
         num2str(yield_load), num2str(ultimate_load), num2str(fail_load), ...
         num2str(disp_to_yield), num2str(disp_to_ult), num2str(disp_to_fail), ...
         num2str(yield_stress), num2str(ultimate_stress), num2str(fail_stress), ...
@@ -417,7 +420,7 @@ resultsxls = {specimen_name, num2str(I), num2str(c), num2str(yield_load), ...
 
 ppp=ppp+1;
 else
-    fprintf('Mechanical data not found for %s.\n',specimen_name)
+    fprintf('Mechanical data not found for %s.\n',ID)
 end
 end
 fprintf('-----------------ANALSYIS COMPLETE------------------\n')
